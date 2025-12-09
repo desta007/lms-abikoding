@@ -1,0 +1,6 @@
+- Ganti CategorySeeder menjadi 2 saja: mobile flutter development, web development
+- Ganti data-data seeder menjadi yang berkaitan dengan flutter dev dan web dev
+- Ganti tulisan LMS Eong menjadi LMS DC Tech
+- Ganti nuansa warna di layout supaya sesuai tema teknologi
+- Ganti di semua layout kata-kata yang terkait tema bahasa jepang menjadi tema flutter / web
+- Test semua hasil revisi diatas
