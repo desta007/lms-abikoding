@@ -159,7 +159,6 @@
                                         required
                                         class="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="Indonesian" {{ old('language') == 'Indonesian' ? 'selected' : '' }}>Indonesian</option>
-                                    <option value="Japanese" {{ old('language') == 'Japanese' ? 'selected' : '' }}>Japanese</option>
                                     <option value="English" {{ old('language') == 'English' ? 'selected' : '' }}>English</option>
                                 </select>
                                 @error('language')

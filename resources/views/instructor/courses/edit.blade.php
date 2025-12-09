@@ -164,7 +164,6 @@
                                         required
                                         class="w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="Indonesian" {{ old('language', $course->language) == 'Indonesian' ? 'selected' : '' }}>Indonesian</option>
-                                    <option value="Japanese" {{ old('language', $course->language) == 'Japanese' ? 'selected' : '' }}>Japanese</option>
                                     <option value="English" {{ old('language', $course->language) == 'English' ? 'selected' : '' }}>English</option>
                                 </select>
                                 @error('language')
