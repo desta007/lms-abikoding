@@ -20,9 +20,16 @@ class StudentRatingController extends Controller
             'review' => 'nullable|string|max:1000',
         ]);
 
-        $course = Course::where('id', $courseId)
-            ->where('instructor_id', Auth::id())
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $courseQuery = Course::where('id', $courseId);
+        
+        if (!$user->isAdmin()) {
+            $courseQuery->where('instructor_id', $userId);
+        }
+        
+        $course = $courseQuery->firstOrFail();
 
         // Verify student is enrolled in this course
         $enrollment = $course->enrollments()
@@ -30,12 +37,14 @@ class StudentRatingController extends Controller
             ->firstOrFail();
 
         // Create or update rating
+        $ratingData = [
+            'course_id' => $courseId,
+            'student_id' => $studentId,
+            'instructor_id' => $userId,
+        ];
+        
         StudentRating::updateOrCreate(
-            [
-                'course_id' => $courseId,
-                'student_id' => $studentId,
-                'instructor_id' => Auth::id(),
-            ],
+            $ratingData,
             [
                 'rating' => $request->rating,
                 'review' => $request->review,
@@ -56,9 +65,16 @@ class StudentRatingController extends Controller
             'review' => 'nullable|string|max:1000',
         ]);
 
-        $rating = StudentRating::where('id', $id)
-            ->where('instructor_id', Auth::id())
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentRating::where('id', $id);
+        
+        if (!$user->isAdmin()) {
+            $query->where('instructor_id', $userId);
+        }
+        
+        $rating = $query->firstOrFail();
 
         $rating->update([
             'rating' => $request->rating,
@@ -74,9 +90,16 @@ class StudentRatingController extends Controller
      */
     public function destroy($id)
     {
-        $rating = StudentRating::where('id', $id)
-            ->where('instructor_id', Auth::id())
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentRating::where('id', $id);
+        
+        if (!$user->isAdmin()) {
+            $query->where('instructor_id', $userId);
+        }
+        
+        $rating = $query->firstOrFail();
 
         $rating->delete();
 

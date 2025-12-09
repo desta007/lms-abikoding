@@ -13,27 +13,48 @@ class ChapterMaterialController extends Controller
 {
     public function create($chapterId)
     {
-        $chapter = Chapter::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->with('course')->findOrFail($chapterId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Chapter::with('course')
+            : Chapter::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            })->with('course');
+        
+        $chapter = $query->findOrFail($chapterId);
 
         return view('instructor.materials.create', compact('chapter'));
     }
 
     public function edit($id)
     {
-        $material = ChapterMaterial::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->with('chapter.course')->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? ChapterMaterial::with('chapter.course')
+            : ChapterMaterial::whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            })->with('chapter.course');
+        
+        $material = $query->findOrFail($id);
 
         return view('instructor.materials.edit', compact('material'));
     }
 
     public function store(Request $request, $chapterId)
     {
-        $chapter = Chapter::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($chapterId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Chapter::query()
+            : Chapter::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $chapter = $query->findOrFail($chapterId);
 
         // Validate all optional inputs
         $rules = [
@@ -125,9 +146,16 @@ class ChapterMaterialController extends Controller
 
     public function update(Request $request, $id)
     {
-        $material = ChapterMaterial::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? ChapterMaterial::query()
+            : ChapterMaterial::whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $material = $query->findOrFail($id);
 
         // Validate all optional inputs (same as store method)
         $rules = [
@@ -221,9 +249,16 @@ class ChapterMaterialController extends Controller
 
     public function destroy($id)
     {
-        $material = ChapterMaterial::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? ChapterMaterial::query()
+            : ChapterMaterial::whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $material = $query->findOrFail($id);
 
         // Delete file if exists
         if ($material->file_path) {
@@ -245,10 +280,17 @@ class ChapterMaterialController extends Controller
             'materials.*.order' => 'required|integer',
         ]);
 
+        $userId = Auth::id();
+        $user = Auth::user();
+        
         foreach ($request->materials as $materialData) {
-            $material = ChapterMaterial::whereHas('chapter.course', function($q) {
-                $q->where('instructor_id', Auth::id());
-            })->findOrFail($materialData['id']);
+            $query = $user->isAdmin()
+                ? ChapterMaterial::query()
+                : ChapterMaterial::whereHas('chapter.course', function($q) use ($userId) {
+                    $q->where('instructor_id', $userId);
+                });
+            
+            $material = $query->findOrFail($materialData['id']);
 
             $material->update(['order' => $materialData['order']]);
         }

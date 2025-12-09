@@ -28,7 +28,7 @@
                                 {{ __('Ujian') }}
                             </x-nav-link>
                         @endif --}}
-                        @if(auth()->user()->isInstructor())
+                        @if(auth()->user()->isInstructor() || auth()->user()->isAdmin())
                             <x-nav-link :href="route('instructor.courses.index')" :active="request()->routeIs('instructor.courses.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 {{ __('Kursus') }}
                             </x-nav-link>
@@ -354,7 +354,7 @@
                         {{ __('Ujian') }}
                     </x-responsive-nav-link>
                 @endif
-                @if(auth()->user()->isInstructor())
+                @if(auth()->user()->isInstructor() || auth()->user()->isAdmin())
                     <x-responsive-nav-link :href="route('instructor.courses.index')" :active="request()->routeIs('instructor.courses.*')">
                         {{ __('Kursus') }}
                     </x-responsive-nav-link>

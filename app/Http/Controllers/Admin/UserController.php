@@ -59,6 +59,45 @@ class UserController extends Controller
     }
 
     /**
+     * Show the form for creating a new instructor.
+     */
+    public function createInstructor()
+    {
+        return view('admin.users.create-instructor');
+    }
+
+    /**
+     * Store a newly created instructor.
+     */
+    public function storeInstructor(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => ['required', 'email', 'max:255', 'unique:users'],
+            'whatsapp_number' => ['required', 'string', 'unique:users', 'regex:/^(\+62|62|0)[0-9]{9,13}$/'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        $user = User::create([
+            'name' => $validated['first_name'] . ' ' . $validated['last_name'],
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'whatsapp_number' => $validated['whatsapp_number'],
+            'password' => Hash::make($validated['password']),
+            'role' => 'instructor',
+            'email_verified_at' => now(), // Auto verify for admin-created instructors
+        ]);
+
+        // Send welcome notification
+        $user->notify(new \App\Notifications\InstructorWelcomeNotification());
+
+        return redirect()->route('admin.users.show', $user->id)
+            ->with('success', 'Instruktur berhasil dibuat. Email welcome telah dikirim.');
+    }
+
+    /**
      * Display the specified user.
      */
     public function show($id)
@@ -116,7 +155,10 @@ class UserController extends Controller
 
         // Log role change if different
         if ($user->role !== $validated['role']) {
-            // Role changed - you might want to log this
+            // Send notification when role changed to instructor
+            if ($validated['role'] === 'instructor' && $user->role !== 'instructor') {
+                $user->notify(new \App\Notifications\InstructorWelcomeNotification());
+            }
             // TODO: Add activity log for role changes
         }
 
@@ -157,8 +199,12 @@ class UserController extends Controller
         $oldRole = $user->role;
         $user->update(['role' => $validated['role']]);
 
+        // Send notification when role changed to instructor
+        if ($validated['role'] === 'instructor' && $oldRole !== 'instructor') {
+            $user->notify(new \App\Notifications\InstructorWelcomeNotification());
+        }
+
         // TODO: Add activity log for role changes
-        // TODO: Send notification to user about role change
 
         return redirect()->route('admin.users.show', $user->id)
             ->with('success', "User role changed from {$oldRole} to {$validated['role']}");
@@ -212,7 +258,7 @@ class UserController extends Controller
             case 'instructor':
                 $stats['total_courses'] = Course::where('instructor_id', $user->id)->count();
                 $stats['published_courses'] = Course::where('instructor_id', $user->id)
-                    ->where('status', 'published')->count();
+                    ->where('is_published', true)->count();
                 $stats['total_students'] = CourseEnrollment::whereHas('course', function($q) use ($user) {
                     $q->where('instructor_id', $user->id);
                 })->distinct('user_id')->count();

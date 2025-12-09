@@ -17,9 +17,15 @@ class ChapterController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        // Ensure course belongs to instructor
-        $course = Course::where('instructor_id', Auth::id())
-            ->findOrFail($courseId);
+        // Ensure course belongs to instructor (admin can access all courses)
+        $user = Auth::user();
+        $courseQuery = Course::where('id', $courseId);
+        
+        if (!$user->isAdmin()) {
+            $courseQuery->where('instructor_id', Auth::id());
+        }
+        
+        $course = $courseQuery->findOrFail($courseId);
 
         // Get next order number
         $maxOrder = Chapter::where('course_id', $course->id)->max('order') ?? 0;
@@ -38,9 +44,16 @@ class ChapterController extends Controller
 
     public function update(Request $request, $id)
     {
-        $chapter = Chapter::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Chapter::query()
+            : Chapter::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $chapter = $query->findOrFail($id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -57,9 +70,16 @@ class ChapterController extends Controller
 
     public function destroy($id)
     {
-        $chapter = Chapter::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Chapter::query()
+            : Chapter::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $chapter = $query->findOrFail($id);
 
         $courseId = $chapter->course_id;
         $chapter->delete();
@@ -76,10 +96,17 @@ class ChapterController extends Controller
             'chapters.*.order' => 'required|integer',
         ]);
 
+        $userId = Auth::id();
+        $user = Auth::user();
+        
         foreach ($request->chapters as $chapterData) {
-            $chapter = Chapter::whereHas('course', function($q) {
-                $q->where('instructor_id', Auth::id());
-            })->findOrFail($chapterData['id']);
+            $query = $user->isAdmin()
+                ? Chapter::query()
+                : Chapter::whereHas('course', function($q) use ($userId) {
+                    $q->where('instructor_id', $userId);
+                });
+            
+            $chapter = $query->findOrFail($chapterData['id']);
 
             $chapter->update(['order' => $chapterData['order']]);
         }

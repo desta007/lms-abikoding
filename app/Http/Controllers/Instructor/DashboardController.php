@@ -15,32 +15,45 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $instructorId = Auth::id();
+        $userId = Auth::id();
+        $user = Auth::user();
         
-        // Get instructor's courses
-        $courses = Course::where('instructor_id', $instructorId)->get();
+        // Get courses (admin sees all, instructor sees their own)
+        $courses = $user->isAdmin() 
+            ? Course::all()
+            : Course::where('instructor_id', $userId)->get();
         
         // Calculate statistics
-        $totalEnrolledStudents = CourseEnrollment::whereHas('course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })->distinct('user_id')->count('user_id');
+        $enrollmentQuery = CourseEnrollment::query();
+        $materialQuery = ChapterMaterial::query();
+        $visitQuery = CourseView::query();
+        $activeUserQuery = CourseEnrollment::query();
+        $examQuery = Exam::query();
         
-        $totalLessons = ChapterMaterial::whereHas('chapter.course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })->count();
+        if (!$user->isAdmin()) {
+            $enrollmentQuery->whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+            $materialQuery->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+            $visitQuery->whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+            $activeUserQuery->whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+            $examQuery->whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
         
-        $totalVisits = CourseView::whereHas('course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })->count();
-        
-        $activeUsers = CourseEnrollment::whereHas('course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })->where('updated_at', '>=', now()->subDays(30))
-        ->distinct('user_id')->count('user_id');
-        
-        $activeExams = Exam::whereHas('course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })->where('is_active', true)
+        $totalEnrolledStudents = $enrollmentQuery->distinct('user_id')->count('user_id');
+        $totalLessons = $materialQuery->count();
+        $totalVisits = $visitQuery->count();
+        $activeUsers = $activeUserQuery->where('updated_at', '>=', now()->subDays(30))
+            ->distinct('user_id')->count('user_id');
+        $activeExams = $examQuery->where('is_active', true)
         ->where(function($q) {
             $q->whereNull('start_date')
               ->orWhere('start_date', '<=', now());

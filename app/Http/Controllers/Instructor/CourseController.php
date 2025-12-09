@@ -15,8 +15,13 @@ class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Course::where('instructor_id', Auth::id())
-            ->with(['category', 'level']);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can see all courses, instructor only sees their own
+        $query = $user->isAdmin() 
+            ? Course::with(['category', 'level'])
+            : Course::where('instructor_id', $userId)->with(['category', 'level']);
 
         // Search
         if ($request->has('search') && $request->search) {
@@ -74,6 +79,7 @@ class CourseController extends Controller
             $validated['thumbnail'] = $request->file('thumbnail')->store('courses/thumbnails', 'public');
         }
 
+        // Admin can create courses and set themselves as instructor
         $validated['instructor_id'] = Auth::id();
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']);
 
@@ -85,9 +91,15 @@ class CourseController extends Controller
 
     public function show($id)
     {
-        $course = Course::where('instructor_id', Auth::id())
-            ->with(['chapters.materials', 'chapters.exams', 'category', 'level'])
-            ->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can see all courses, instructor only sees their own
+        $query = $user->isAdmin()
+            ? Course::with(['chapters.materials', 'chapters.exams', 'category', 'level'])
+            : Course::where('instructor_id', $userId)->with(['chapters.materials', 'chapters.exams', 'category', 'level']);
+        
+        $course = $query->findOrFail($id);
 
         $chaptersData = $course->chapters->map(function ($chapter) {
             return [
@@ -116,7 +128,15 @@ class CourseController extends Controller
 
     public function edit($id)
     {
-        $course = Course::where('instructor_id', Auth::id())->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can edit all courses, instructor only edits their own
+        $query = $user->isAdmin()
+            ? Course::query()
+            : Course::where('instructor_id', $userId);
+        
+        $course = $query->findOrFail($id);
         $categories = Category::all();
         $levels = Level::orderBy('order')->get();
 
@@ -125,7 +145,15 @@ class CourseController extends Controller
 
     public function update(Request $request, $id)
     {
-        $course = Course::where('instructor_id', Auth::id())->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can update all courses, instructor only updates their own
+        $query = $user->isAdmin()
+            ? Course::query()
+            : Course::where('instructor_id', $userId);
+        
+        $course = $query->findOrFail($id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -155,7 +183,15 @@ class CourseController extends Controller
 
     public function destroy($id)
     {
-        $course = Course::where('instructor_id', Auth::id())->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can delete all courses, instructor only deletes their own
+        $query = $user->isAdmin()
+            ? Course::query()
+            : Course::where('instructor_id', $userId);
+        
+        $course = $query->findOrFail($id);
         
         if ($course->thumbnail) {
             Storage::disk('public')->delete($course->thumbnail);
@@ -169,7 +205,15 @@ class CourseController extends Controller
 
     public function publish($id)
     {
-        $course = Course::where('instructor_id', Auth::id())->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can publish all courses, instructor only publishes their own
+        $query = $user->isAdmin()
+            ? Course::query()
+            : Course::where('instructor_id', $userId);
+        
+        $course = $query->findOrFail($id);
         
         // Toggle publish status
         $course->update(['is_published' => !$course->is_published]);

@@ -12,12 +12,17 @@ class CommentController extends Controller
 {
     public function index(Request $request)
     {
-        $instructorId = Auth::id();
+        $userId = Auth::id();
+        $user = Auth::user();
         
-        $query = Comment::with(['user', 'chapter.course', 'chapterMaterial'])
-            ->whereHas('chapter.course', function($q) use ($instructorId) {
-                $q->where('instructor_id', $instructorId);
+        $query = Comment::with(['user', 'chapter.course', 'chapterMaterial']);
+        
+        // Admin can see all comments, instructor only sees their own courses
+        if (!$user->isAdmin()) {
+            $query->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
             });
+        }
 
         // Filter by course
         if ($request->has('course') && $request->course) {
@@ -37,27 +42,45 @@ class CommentController extends Controller
         }
 
         $comments = $query->latest()->paginate(20);
-        $courses = Course::where('instructor_id', $instructorId)->get();
+        $courses = $user->isAdmin()
+            ? Course::all()
+            : Course::where('instructor_id', $userId)->get();
 
         return view('instructor.comments.index', compact('comments', 'courses'));
     }
 
     public function show($id)
     {
-        $comment = Comment::with(['user', 'chapter.course', 'chapterMaterial', 'replies.user'])
-            ->whereHas('chapter.course', function($q) {
-                $q->where('instructor_id', Auth::id());
-            })
-            ->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = Comment::with(['user', 'chapter.course', 'chapterMaterial', 'replies.user']);
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $comment = $query->findOrFail($id);
 
         return view('instructor.comments.show', compact('comment'));
     }
 
     public function update(Request $request, $id)
     {
-        $comment = Comment::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = Comment::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $comment = $query->findOrFail($id);
 
         $comment->update([
             'is_approved' => $request->has('is_approved') ? $request->is_approved : $comment->is_approved,
@@ -68,9 +91,18 @@ class CommentController extends Controller
 
     public function destroy($id)
     {
-        $comment = Comment::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = Comment::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $comment = $query->findOrFail($id);
 
         $comment->delete();
 
@@ -79,9 +111,18 @@ class CommentController extends Controller
 
     public function reply(Request $request, $id)
     {
-        $parentComment = Comment::whereHas('chapter.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = Comment::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('chapter.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $parentComment = $query->findOrFail($id);
 
         $request->validate([
             'content' => 'required|string',

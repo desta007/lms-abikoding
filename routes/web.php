@@ -75,8 +75,8 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::post('/exams/{attemptId}/request-retake', [App\Http\Controllers\Student\ExamController::class, 'requestRetake'])->name('exams.request-retake');
 });
 
-// Instructor routes
-Route::middleware(['auth', 'role:instructor'])->prefix('instructor')->name('instructor.')->group(function () {
+// Instructor routes (also accessible by admin)
+Route::middleware(['auth', 'role:instructor,admin'])->prefix('instructor')->name('instructor.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\Instructor\DashboardController::class, 'index'])->name('dashboard');
     
     Route::resource('courses', App\Http\Controllers\Instructor\CourseController::class);
@@ -176,6 +176,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     // User Management (all users)
     Route::resource('users', App\Http\Controllers\Admin\UserController::class);
     Route::post('/users/{id}/role', [App\Http\Controllers\Admin\UserController::class, 'updateRole'])->name('users.update-role');
+    Route::get('/users/instructors/create', [App\Http\Controllers\Admin\UserController::class, 'createInstructor'])->name('users.create-instructor');
+    Route::post('/users/instructors', [App\Http\Controllers\Admin\UserController::class, 'storeInstructor'])->name('users.store-instructor');
     
     // Student Management (legacy - can be kept for backward compatibility)
     Route::resource('students', App\Http\Controllers\Admin\StudentController::class);

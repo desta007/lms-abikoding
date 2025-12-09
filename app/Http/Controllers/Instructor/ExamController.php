@@ -13,11 +13,19 @@ class ExamController extends Controller
 {
     public function index(Request $request)
     {
-        $courses = \App\Models\Course::where('instructor_id', Auth::id())->get();
+        $userId = Auth::id();
+        $user = Auth::user();
         
-        $query = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->with(['course', 'chapter', 'questions']);
+        // Admin can see all courses, instructor only sees their own
+        $courses = $user->isAdmin()
+            ? \App\Models\Course::all()
+            : \App\Models\Course::where('instructor_id', $userId)->get();
+        
+        $query = $user->isAdmin()
+            ? Exam::with(['course', 'chapter', 'questions'])
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            })->with(['course', 'chapter', 'questions']);
 
         // Filter by course
         if ($request->has('course') && $request->course) {
@@ -40,16 +48,26 @@ class ExamController extends Controller
 
     public function create(Request $request, $chapterId = null)
     {
-        $courses = \App\Models\Course::where('instructor_id', Auth::id())->get();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        // Admin can see all courses, instructor only sees their own
+        $courses = $user->isAdmin()
+            ? \App\Models\Course::all()
+            : \App\Models\Course::where('instructor_id', $userId)->get();
         
         // Get chapter_id from route parameter or request
         $chapterId = $chapterId ?? $request->get('chapter_id');
         $chapter = null;
         
         if ($chapterId) {
-            $chapter = \App\Models\Chapter::whereHas('course', function($q) {
-                $q->where('instructor_id', Auth::id());
-            })->with('course')->findOrFail($chapterId);
+            $chapterQuery = $user->isAdmin()
+                ? \App\Models\Chapter::with('course')
+                : \App\Models\Chapter::whereHas('course', function($q) use ($userId) {
+                    $q->where('instructor_id', $userId);
+                })->with('course');
+            
+            $chapter = $chapterQuery->findOrFail($chapterId);
         }
         
         return view('instructor.exams.create', compact('courses', 'chapter'));
@@ -71,10 +89,15 @@ class ExamController extends Controller
             'auto_complete_on_pass' => 'nullable|boolean',
         ]);
 
-        // Verify course ownership
-        $course = \App\Models\Course::where('id', $validated['course_id'])
-            ->where('instructor_id', Auth::id())
-            ->firstOrFail();
+        // Verify course ownership (admin can access all courses)
+        $user = Auth::user();
+        $courseQuery = \App\Models\Course::where('id', $validated['course_id']);
+        
+        if (!$user->isAdmin()) {
+            $courseQuery->where('instructor_id', Auth::id());
+        }
+        
+        $course = $courseQuery->firstOrFail();
 
         $validated['is_active'] = $request->has('is_active');
         $validated['minimum_passing_score'] = $validated['minimum_passing_score'] ?? 70;
@@ -99,29 +122,48 @@ class ExamController extends Controller
 
     public function show($id)
     {
-        $exam = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->with(['questions.answers', 'attempts.user'])
-            ->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::with(['questions.answers', 'attempts.user'])
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            })->with(['questions.answers', 'attempts.user']);
+        
+        $exam = $query->findOrFail($id);
 
         return view('instructor.exams.show', compact('exam'));
     }
 
     public function questions($id)
     {
-        $exam = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->with(['questions.answers'])
-            ->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::with(['questions.answers'])
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            })->with(['questions.answers']);
+        
+        $exam = $query->findOrFail($id);
 
         return view('instructor.exams.questions', compact('exam'));
     }
 
     public function addQuestion(Request $request, $examId)
     {
-        $exam = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($examId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::query()
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $exam = $query->findOrFail($examId);
 
         $validated = $request->validate([
             'question_text' => 'required|string',
@@ -185,9 +227,16 @@ class ExamController extends Controller
 
     public function deleteQuestion($examId, $questionId)
     {
-        $exam = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($examId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::query()
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $exam = $query->findOrFail($examId);
 
         $question = Question::where('exam_id', $exam->id)->findOrFail($questionId);
         $question->delete();
@@ -197,9 +246,16 @@ class ExamController extends Controller
 
     public function attempts($id)
     {
-        $exam = Exam::whereHas('course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::query()
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $exam = $query->findOrFail($id);
 
         $attempts = \App\Models\ExamAttempt::where('exam_id', $exam->id)
             ->with(['user'])
@@ -211,16 +267,23 @@ class ExamController extends Controller
 
     public function retakeRequests()
     {
-        $instructorId = Auth::id();
+        $userId = Auth::id();
+        $user = Auth::user();
         
-        $retakeRequests = \App\Models\ExamAttempt::with([
+        $query = \App\Models\ExamAttempt::with([
             'exam.course',
             'user',
             'retakeApprovedBy'
-        ])
-        ->whereHas('exam.course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        })
+        ]);
+        
+        // Admin can see all retake requests, instructor only sees their own courses
+        if (!$user->isAdmin()) {
+            $query->whereHas('exam.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $retakeRequests = $query
         ->where('retake_requested', true)
         ->where('retake_approved', false)
         ->where('status', 'failed')
@@ -233,9 +296,18 @@ class ExamController extends Controller
 
     public function approveRetake($attemptId)
     {
-        $attempt = \App\Models\ExamAttempt::whereHas('exam.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($attemptId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = \App\Models\ExamAttempt::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('exam.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $attempt = $query->findOrFail($attemptId);
 
         if (!$attempt->retake_requested) {
             return redirect()->back()
@@ -262,9 +334,18 @@ class ExamController extends Controller
             'rejection_reason' => 'required|string|max:500',
         ]);
 
-        $attempt = \App\Models\ExamAttempt::whereHas('exam.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($attemptId);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = \App\Models\ExamAttempt::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('exam.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $attempt = $query->findOrFail($attemptId);
 
         if (!$attempt->retake_requested) {
             return redirect()->back()

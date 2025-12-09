@@ -16,10 +16,16 @@ class CourseStudentController extends Controller
      */
     public function index($courseId)
     {
-        $course = Course::where('id', $courseId)
-            ->where('instructor_id', Auth::id())
-            ->with(['enrollments.user', 'enrollments.progress'])
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $courseQuery = Course::where('id', $courseId)->with(['enrollments.user', 'enrollments.progress']);
+        
+        if (!$user->isAdmin()) {
+            $courseQuery->where('instructor_id', $userId);
+        }
+        
+        $course = $courseQuery->firstOrFail();
 
         $enrollments = $course->enrollments()
             ->with(['user', 'progress'])
@@ -27,10 +33,13 @@ class CourseStudentController extends Controller
             ->paginate(20);
 
         // Load ratings for each student
-        $studentRatings = StudentRating::where('course_id', $courseId)
-            ->where('instructor_id', Auth::id())
-            ->get()
-            ->keyBy('student_id');
+        $ratingQuery = StudentRating::where('course_id', $courseId);
+        
+        if (!$user->isAdmin()) {
+            $ratingQuery->where('instructor_id', $userId);
+        }
+        
+        $studentRatings = $ratingQuery->get()->keyBy('student_id');
 
         return view('instructor.courses.students', compact('course', 'enrollments', 'studentRatings'));
     }
@@ -40,19 +49,30 @@ class CourseStudentController extends Controller
      */
     public function show($courseId, $studentId)
     {
-        $course = Course::where('id', $courseId)
-            ->where('instructor_id', Auth::id())
-            ->firstOrFail();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $courseQuery = Course::where('id', $courseId);
+        
+        if (!$user->isAdmin()) {
+            $courseQuery->where('instructor_id', $userId);
+        }
+        
+        $course = $courseQuery->firstOrFail();
 
         $enrollment = CourseEnrollment::where('course_id', $courseId)
             ->where('user_id', $studentId)
             ->with(['user', 'progress.chapterMaterial'])
             ->firstOrFail();
 
-        $studentRating = StudentRating::where('course_id', $courseId)
-            ->where('student_id', $studentId)
-            ->where('instructor_id', Auth::id())
-            ->first();
+        $ratingQuery = StudentRating::where('course_id', $courseId)
+            ->where('student_id', $studentId);
+        
+        if (!$user->isAdmin()) {
+            $ratingQuery->where('instructor_id', $userId);
+        }
+        
+        $studentRating = $ratingQuery->first();
 
         return view('instructor.courses.student-detail', compact('course', 'enrollment', 'studentRating'));
     }

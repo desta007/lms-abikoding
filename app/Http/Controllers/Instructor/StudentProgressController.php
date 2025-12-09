@@ -12,7 +12,8 @@ class StudentProgressController extends Controller
 {
     public function index(Request $request)
     {
-        $instructorId = Auth::id();
+        $userId = Auth::id();
+        $user = Auth::user();
         
         $query = StudentProgress::with([
             'courseEnrollment.user',
@@ -20,10 +21,14 @@ class StudentProgressController extends Controller
             'chapter',
             'chapterMaterial',
             'quizAttempt.exam'
-        ])
-        ->whereHas('courseEnrollment.course', function($q) use ($instructorId) {
-            $q->where('instructor_id', $instructorId);
-        });
+        ]);
+        
+        // Admin can see all progress, instructor only sees their own courses
+        if (!$user->isAdmin()) {
+            $query->whereHas('courseEnrollment.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
 
         // Filter by course
         if ($request->has('course') && $request->course) {
@@ -51,34 +56,52 @@ class StudentProgressController extends Controller
         }
 
         $progresses = $query->latest('updated_at')->paginate(20);
-        $courses = Course::where('instructor_id', $instructorId)->get();
+        $courses = $user->isAdmin()
+            ? Course::all()
+            : Course::where('instructor_id', $userId)->get();
 
         return view('instructor.progress.index', compact('progresses', 'courses'));
     }
 
     public function show($id)
     {
-        $progress = StudentProgress::with([
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentProgress::with([
             'courseEnrollment.user',
             'courseEnrollment.course',
             'chapter',
             'chapterMaterial',
             'quizAttempt.exam',
             'approvedBy'
-        ])
-        ->whereHas('courseEnrollment.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })
-        ->findOrFail($id);
+        ]);
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('courseEnrollment.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $progress = $query->findOrFail($id);
 
         return view('instructor.progress.show', compact('progress'));
     }
 
     public function approve($id)
     {
-        $progress = StudentProgress::whereHas('courseEnrollment.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentProgress::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('courseEnrollment.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $progress = $query->findOrFail($id);
 
         $progress->approveBy(Auth::user());
 
@@ -99,9 +122,18 @@ class StudentProgressController extends Controller
             'rejection_reason' => 'nullable|string|max:500',
         ]);
 
-        $progress = StudentProgress::whereHas('courseEnrollment.course', function($q) {
-            $q->where('instructor_id', Auth::id());
-        })->findOrFail($id);
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentProgress::query();
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('courseEnrollment.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $progress = $query->findOrFail($id);
 
         $progress->update([
             'is_completed' => false,
@@ -141,11 +173,18 @@ class StudentProgressController extends Controller
             return redirect()->back()->with('error', 'Tidak ada progress yang dipilih');
         }
 
-        $progresses = StudentProgress::whereIn('id', $progressIds)
-            ->whereHas('courseEnrollment.course', function($q) {
-                $q->where('instructor_id', Auth::id());
-            })
-            ->get();
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = StudentProgress::whereIn('id', $progressIds);
+        
+        if (!$user->isAdmin()) {
+            $query->whereHas('courseEnrollment.course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        }
+        
+        $progresses = $query->get();
 
         foreach ($progresses as $progress) {
             $progress->approveBy(Auth::user());
