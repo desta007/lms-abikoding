@@ -10,6 +10,10 @@ Route::post('/language/switch', [App\Http\Controllers\LanguageController::class,
 Route::get('/courses/{slug}', [App\Http\Controllers\CourseController::class, 'show'])->name('courses.show');
 Route::post('/courses/{courseId}/enroll', [App\Http\Controllers\CourseEnrollmentController::class, 'store'])->middleware('auth')->name('courses.enroll');
 
+// Public Source Code routes
+Route::get('/source-codes', [App\Http\Controllers\SourceCodeController::class, 'index'])->name('source-codes.index');
+Route::get('/source-codes/{slug}', [App\Http\Controllers\SourceCodeController::class, 'show'])->name('source-codes.show');
+
 // Course Rating Routes (Student)
 Route::middleware('auth')->group(function () {
     Route::post('/courses/{courseId}/ratings', [App\Http\Controllers\CourseRatingController::class, 'store'])->name('course-ratings.store');
@@ -129,6 +133,10 @@ Route::middleware(['auth', 'role:instructor,admin'])->prefix('instructor')->name
     Route::post('/courses/{courseId}/students/{studentId}/ratings', [App\Http\Controllers\Instructor\StudentRatingController::class, 'store'])->name('student-ratings.store');
     Route::put('/student-ratings/{id}', [App\Http\Controllers\Instructor\StudentRatingController::class, 'update'])->name('student-ratings.update');
     Route::delete('/student-ratings/{id}', [App\Http\Controllers\Instructor\StudentRatingController::class, 'destroy'])->name('student-ratings.destroy');
+    
+    // Source Code Routes
+    Route::resource('source-codes', App\Http\Controllers\Instructor\SourceCodeController::class);
+    Route::post('/source-codes/{id}/publish', [App\Http\Controllers\Instructor\SourceCodeController::class, 'publish'])->name('source-codes.publish');
 });
 
 // Community routes
@@ -192,6 +200,9 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     
     // Course Management (view all courses)
     Route::get('/courses', [App\Http\Controllers\Admin\CourseController::class, 'index'])->name('courses.index');
+    
+    // Source Code Management (view all source codes)
+    Route::get('/source-codes', [App\Http\Controllers\Admin\SourceCodeController::class, 'index'])->name('source-codes.index');
 });
 
 Route::middleware('auth')->group(function () {

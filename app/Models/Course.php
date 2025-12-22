@@ -39,6 +39,13 @@ class Course extends Model
                 $course->slug = Str::slug($course->title);
             }
         });
+
+        static::updating(function ($course) {
+            // Regenerate slug if title changed
+            if ($course->isDirty('title')) {
+                $course->slug = Str::slug($course->title);
+            }
+        });
     }
 
     public function category(): BelongsTo

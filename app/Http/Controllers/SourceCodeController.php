@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
-use App\Models\Course;
 use App\Models\Level;
 use App\Models\SourceCode;
+use App\Models\SourceCodeCategory;
 use Illuminate\Http\Request;
 
-class HomeController extends Controller
+class SourceCodeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Course::with(['category', 'level', 'instructor', 'ratings'])
+        $query = SourceCode::with(['category', 'level', 'instructor'])
             ->published();
 
         // Search
@@ -28,7 +27,7 @@ class HomeController extends Controller
         // Filter by category (multiple)
         if ($request->has('category') && $request->category) {
             $categories = is_array($request->category) ? $request->category : [$request->category];
-            $query->whereIn('category_id', $categories);
+            $query->whereIn('source_code_category_id', $categories);
         }
 
         // Filter by level (multiple)
@@ -37,9 +36,9 @@ class HomeController extends Controller
             $query->whereIn('level_id', $levels);
         }
 
-        // Filter by language
-        if ($request->has('language') && $request->language) {
-            $query->where('language', $request->language);
+        // Filter by technology
+        if ($request->has('technology') && $request->technology) {
+            $query->whereJsonContains('technologies', $request->technology);
         }
 
         // Filter by instructor
@@ -62,47 +61,59 @@ class HomeController extends Controller
                 $query->where('price', '>', 500000);
             }
         }
-        
-        // Custom price range
-        if ($request->has('min_price') && $request->min_price) {
-            $query->where('price', '>=', $request->min_price);
-        }
-        if ($request->has('max_price') && $request->max_price) {
-            $query->where('price', '<=', $request->max_price);
-        }
 
         // Sort
         $sortBy = $request->get('sort', 'newest');
         match($sortBy) {
-            'rating' => $query->withAvg('ratings', 'rating')->orderBy('ratings_avg_rating', 'desc'),
             'oldest' => $query->orderBy('created_at', 'asc'),
+            'price_low' => $query->orderBy('price', 'asc'),
+            'price_high' => $query->orderBy('price', 'desc'),
             default => $query->orderBy('created_at', 'desc'),
         };
 
-        $courses = $query->paginate(12)->withQueryString();
-        $categories = Category::all();
+        $sourceCodes = $query->paginate(12)->withQueryString();
+        $categories = SourceCodeCategory::all();
         $levels = Level::orderBy('order')->get();
         $instructors = \App\Models\User::where('role', 'instructor')
-            ->whereHas('courses', function($q) {
+            ->whereHas('sourceCodes', function($q) {
                 $q->published();
             })
             ->get();
-        $languages = Course::published()->distinct()->pluck('language')->filter();
 
-        // Fetch latest source codes for home page
-        $latestSourceCodes = SourceCode::with(['category', 'level', 'instructor'])
-            ->published()
-            ->latest()
-            ->limit(6)
-            ->get();
+        // Get unique technologies from all source codes
+        $technologies = SourceCode::published()
+            ->whereNotNull('technologies')
+            ->get()
+            ->pluck('technologies')
+            ->flatten()
+            ->unique()
+            ->values();
 
-        // If AJAX request, return only the courses container wrapper HTML
+        // If AJAX request, return only the source codes container HTML
         if ($request->ajax()) {
             return response()->json([
-                'html' => view('partials.courses-list', compact('courses'))->render()
+                'html' => view('partials.source-codes-list', compact('sourceCodes'))->render()
             ]);
         }
 
-        return view('home', compact('courses', 'categories', 'levels', 'instructors', 'languages', 'latestSourceCodes'));
+        return view('source-codes.index', compact('sourceCodes', 'categories', 'levels', 'instructors', 'technologies'));
+    }
+
+    public function show($slug)
+    {
+        $sourceCode = SourceCode::with(['category', 'level', 'instructor'])
+            ->published()
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        // Get related source codes from the same category
+        $relatedSourceCodes = SourceCode::with(['category', 'level', 'instructor'])
+            ->published()
+            ->where('source_code_category_id', $sourceCode->source_code_category_id)
+            ->where('id', '!=', $sourceCode->id)
+            ->limit(4)
+            ->get();
+
+        return view('source-codes.show', compact('sourceCode', 'relatedSourceCodes'));
     }
 }

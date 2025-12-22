@@ -147,4 +147,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Notification::class);
     }
+
+    public function sourceCodes(): HasMany
+    {
+        return $this->hasMany(SourceCode::class, 'instructor_id');
+    }
 }

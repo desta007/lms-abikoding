@@ -18,10 +18,23 @@
                     <x-nav-link :href="route('home')" :active="request()->routeIs('home')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                         {{ __('Beranda') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('source-codes.index')" :active="request()->routeIs('source-codes.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        {{ __('Source Code') }}
+                    </x-nav-link>
                     @auth
-                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-                            {{ __('Dashboard') }}
-                        </x-nav-link>
+                        @if(auth()->user()->isAdmin())
+                            <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                {{ __('Dashboard') }}
+                            </x-nav-link>
+                        @elseif(auth()->user()->isInstructor())
+                            <x-nav-link :href="route('instructor.dashboard')" :active="request()->routeIs('instructor.dashboard')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                {{ __('Dashboard') }}
+                            </x-nav-link>
+                        @else
+                            <x-nav-link :href="route('student.dashboard')" :active="request()->routeIs('student.dashboard')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                {{ __('Dashboard') }}
+                            </x-nav-link>
+                        @endif
                         {{-- Hide Ujian menu for students --}}
                         {{-- @if(auth()->user()->isStudent())
                             <x-nav-link :href="route('student.exams.index')" :active="request()->routeIs('student.exams.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -31,6 +44,9 @@
                         @if(auth()->user()->isInstructor() || auth()->user()->isAdmin())
                             <x-nav-link :href="route('instructor.courses.index')" :active="request()->routeIs('instructor.courses.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 {{ __('Kursus') }}
+                            </x-nav-link>
+                            <x-nav-link :href="route('instructor.source-codes.index')" :active="request()->routeIs('instructor.source-codes.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                {{ __('Kelola Source Code') }}
                             </x-nav-link>
                             <x-nav-link :href="route('instructor.progress.index')" :active="request()->routeIs('instructor.progress.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 {{ __('Progress Siswa') }}
@@ -345,10 +361,23 @@
             <x-responsive-nav-link :href="route('home')" :active="request()->routeIs('home')">
                 {{ __('Beranda') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('source-codes.index')" :active="request()->routeIs('source-codes.*')">
+                {{ __('Source Code') }}
+            </x-responsive-nav-link>
             @auth
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
-                    {{ __('Dashboard') }}
-                </x-responsive-nav-link>
+                @if(auth()->user()->isAdmin())
+                    <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')">
+                        {{ __('Dashboard') }}
+                    </x-responsive-nav-link>
+                @elseif(auth()->user()->isInstructor())
+                    <x-responsive-nav-link :href="route('instructor.dashboard')" :active="request()->routeIs('instructor.dashboard')">
+                        {{ __('Dashboard') }}
+                    </x-responsive-nav-link>
+                @else
+                    <x-responsive-nav-link :href="route('student.dashboard')" :active="request()->routeIs('student.dashboard')">
+                        {{ __('Dashboard') }}
+                    </x-responsive-nav-link>
+                @endif
                 @if(auth()->user()->isStudent())
                     <x-responsive-nav-link :href="route('student.exams.index')" :active="request()->routeIs('student.exams.*')">
                         {{ __('Ujian') }}
@@ -357,6 +386,9 @@
                 @if(auth()->user()->isInstructor() || auth()->user()->isAdmin())
                     <x-responsive-nav-link :href="route('instructor.courses.index')" :active="request()->routeIs('instructor.courses.*')">
                         {{ __('Kursus') }}
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('instructor.source-codes.index')" :active="request()->routeIs('instructor.source-codes.*')">
+                        {{ __('Kelola Source Code') }}
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('instructor.progress.index')" :active="request()->routeIs('instructor.progress.*')">
                         {{ __('Progress Siswa') }}
