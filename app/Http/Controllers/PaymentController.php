@@ -9,6 +9,7 @@ use App\Models\CourseEnrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
@@ -33,8 +34,26 @@ class PaymentController extends Controller
                 ->with('error', 'Kursus ini gratis, silakan gunakan tombol Daftar');
         }
 
-        // Create invoice
-        $invoice = Invoice::create([
+        // Check for existing pending invoice
+        $existingInvoice = Invoice::where('user_id', Auth::id())
+            ->where('course_id', $course->id)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($existingInvoice) {
+            // Check if there's already a pending payment
+            $existingPayment = Payment::where('invoice_id', $existingInvoice->id)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($existingPayment) {
+                return redirect()->route('payments.pending', $existingInvoice->id)
+                    ->with('info', 'Anda sudah memiliki pembayaran yang menunggu verifikasi');
+            }
+        }
+
+        // Create invoice if not exists
+        $invoice = $existingInvoice ?? Invoice::create([
             'user_id' => Auth::id(),
             'invoice_number' => 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(8)),
             'type' => 'course_enrollment',
@@ -47,126 +66,62 @@ class PaymentController extends Controller
             'due_date' => now()->addDays(7),
         ]);
 
-        // Initialize Midtrans Snap
-        \Midtrans\Config::$serverKey = config('services.midtrans.server_key');
-        \Midtrans\Config::$isProduction = config('services.midtrans.is_production', false);
-        \Midtrans\Config::$isSanitized = true;
-        \Midtrans\Config::$is3ds = true;
+        // Get bank account settings
+        $bankAccount = \App\Models\Setting::getBankAccount();
 
-        // Prepare customer name
-        $user = Auth::user();
-        $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-        if (empty($fullName)) {
-            $fullName = $user->name ?? 'Customer';
-        }
-        $nameParts = explode(' ', $fullName, 2);
-        $firstName = $nameParts[0];
-        $lastName = isset($nameParts[1]) ? $nameParts[1] : '';
+        return view('payments.checkout', compact('course', 'invoice', 'bankAccount'));
+    }
 
-        // Prepare phone number (required for some payment methods like Virtual Account and QRIS)
-        $phone = $user->whatsapp_number ?? $user->phone ?? null;
-        
-        // Clean and format phone number
-        if (!empty($phone)) {
-            // Remove any non-numeric characters
-            $phone = preg_replace('/[^0-9]/', '', $phone);
-            
-            // Format Indonesian phone number
-            if (strlen($phone) > 0) {
-                // If starts with 62, remove it and add 0
-                if (substr($phone, 0, 2) === '62') {
-                    $phone = '0' . substr($phone, 2);
-                }
-                // If doesn't start with 0, add it
-                if (substr($phone, 0, 1) !== '0') {
-                    $phone = '0' . $phone;
-                }
-            }
-        }
-        
-        // Default phone for testing if empty (required by Midtrans)
-        if (empty($phone) || strlen($phone) < 10) {
-            $phone = '081234567890';
-        }
+    public function processManualPayment(Request $request, $invoiceId)
+    {
+        $request->validate([
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+        ], [
+            'payment_proof.required' => 'Bukti transfer wajib diunggah',
+            'payment_proof.image' => 'File harus berupa gambar',
+            'payment_proof.mimes' => 'Format gambar harus jpeg, png, atau jpg',
+            'payment_proof.max' => 'Ukuran gambar maksimal 2MB',
+        ]);
 
-        // Build callback URLs
-        $baseUrl = config('app.url');
-        $callbacks = [
-            'finish' => route('payments.success', $invoice->id),
-            'unfinish' => route('payments.failed', $invoice->id),
-            'error' => route('payments.failed', $invoice->id),
-        ];
+        $invoice = Invoice::where('user_id', Auth::id())
+            ->where('id', $invoiceId)
+            ->where('status', 'pending')
+            ->firstOrFail();
 
-        $params = [
-            'transaction_details' => [
-                'order_id' => $invoice->invoice_number,
-                'gross_amount' => (float) $invoice->total_amount,
-            ],
-            'customer_details' => [
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'email' => $user->email,
-                'phone' => $phone,
-                'billing_address' => [
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'phone' => $phone,
-                    'country_code' => 'IDN',
-                ],
-                'shipping_address' => [
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'phone' => $phone,
-                    'country_code' => 'IDN',
-                ],
-            ],
-            'item_details' => [
-                [
-                    'id' => (string) $course->id,
-                    'price' => (float) $invoice->total_amount,
-                    'quantity' => 1,
-                    'name' => substr($course->title, 0, 50), // Max 50 chars for Midtrans
-                ],
-            ],
-            'callbacks' => $callbacks,
-            'expiry' => [
-                'start_time' => date('Y-m-d H:i:s O'),
-                'unit' => 'hour',
-                'duration' => 24, // 24 hours expiry
-            ],
-            // Enable specific payment methods explicitly
-            'enabled_payments' => [
-                'credit_card',
-                'mandiri_va',
-                'bca_va',
-                'bni_va',
-                'permata_va',
-                'other_va',
-                'gopay',
-                'qris',
-                'shopeepay',
-                'indomaret',
-                'alfamart',
-            ],
-        ];
+        // Store payment proof
+        $paymentProofPath = $request->file('payment_proof')->store('payment-proofs', 'public');
 
-        try {
-            $snapToken = \Midtrans\Snap::getSnapToken($params);
+        // Create payment record
+        $payment = Payment::create([
+            'user_id' => Auth::id(),
+            'invoice_id' => $invoice->id,
+            'payment_method' => 'manual',
+            'amount' => $invoice->total_amount,
+            'status' => 'pending',
+            'payment_proof' => $paymentProofPath,
+        ]);
 
-            // Create payment record
-            $payment = Payment::create([
-                'user_id' => Auth::id(),
-                'invoice_id' => $invoice->id,
-                'payment_method' => 'midtrans',
-                'amount' => $invoice->total_amount,
-                'status' => 'pending',
-            ]);
+        Log::info('Manual payment created', [
+            'payment_id' => $payment->id,
+            'invoice_id' => $invoice->id,
+            'user_id' => Auth::id(),
+        ]);
 
-            return view('payments.checkout', compact('course', 'invoice', 'snapToken', 'payment'));
-        } catch (\Exception $e) {
-            return redirect()->route('courses.show', $course->slug)
-                ->with('error', 'Gagal memproses pembayaran: ' . $e->getMessage());
-        }
+        return redirect()->route('payments.pending', $invoice->id)
+            ->with('success', 'Bukti pembayaran berhasil diunggah. Silakan tunggu verifikasi dari admin.');
+    }
+
+    public function pending($invoiceId)
+    {
+        $invoice = Invoice::where('user_id', Auth::id())
+            ->with('course')
+            ->findOrFail($invoiceId);
+
+        $payment = Payment::where('invoice_id', $invoice->id)
+            ->latest()
+            ->first();
+
+        return view('payments.pending', compact('invoice', 'payment'));
     }
 
     public function process(Request $request, $invoiceId)
@@ -193,6 +148,15 @@ class PaymentController extends Controller
         if (!$payment) {
             return redirect()->route('courses.show', $invoice->course->slug)
                 ->with('error', 'Payment record not found');
+        }
+
+        // For manual payments, just show success page
+        if ($payment->payment_method === 'manual') {
+            // Refresh payment and invoice from database
+            $payment->refresh();
+            $invoice->refresh();
+
+            return view('payments.success', compact('invoice'));
         }
 
         // Verify payment status directly from Midtrans API

@@ -48,8 +48,10 @@ Route::post('/verify-certificate', [App\Http\Controllers\CertificateVerification
 Route::get('/certificates/verify/{code}', [App\Http\Controllers\CertificateVerificationController::class, 'verify'])->name('certificates.verify');
 
 // Payment routes
-Route::middleware(['auth', 'midtrans.csp'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/payments/checkout/{courseId}', [App\Http\Controllers\PaymentController::class, 'checkout'])->name('payments.checkout');
+    Route::post('/payments/manual/{invoiceId}', [App\Http\Controllers\PaymentController::class, 'processManualPayment'])->name('payments.manual');
+    Route::get('/payments/pending/{invoiceId}', [App\Http\Controllers\PaymentController::class, 'pending'])->name('payments.pending');
     Route::post('/payments/process/{invoiceId}', [App\Http\Controllers\PaymentController::class, 'process'])->name('payments.process');
     Route::get('/payments/success/{invoiceId}', [App\Http\Controllers\PaymentController::class, 'success'])->name('payments.success');
     Route::get('/payments/failed/{invoiceId}', [App\Http\Controllers\PaymentController::class, 'failed'])->name('payments.failed');
@@ -195,8 +197,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/payments', [App\Http\Controllers\Admin\PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/{id}', [App\Http\Controllers\Admin\PaymentController::class, 'show'])->name('payments.show');
     Route::put('/payments/{id}/status', [App\Http\Controllers\Admin\PaymentController::class, 'updateStatus'])->name('payments.update-status');
+    Route::post('/payments/{id}/approve', [App\Http\Controllers\Admin\PaymentController::class, 'approve'])->name('payments.approve');
+    Route::post('/payments/{id}/reject', [App\Http\Controllers\Admin\PaymentController::class, 'reject'])->name('payments.reject');
     Route::get('/invoices', [App\Http\Controllers\Admin\PaymentController::class, 'invoices'])->name('payments.invoices');
     Route::post('/invoices/generate', [App\Http\Controllers\Admin\PaymentController::class, 'generateInvoice'])->name('payments.generate-invoice');
+
+    // Settings Routes
+    Route::get('/settings/bank-account', [App\Http\Controllers\Admin\SettingController::class, 'bankAccount'])->name('settings.bank-account');
+    Route::put('/settings/bank-account', [App\Http\Controllers\Admin\SettingController::class, 'updateBankAccount'])->name('settings.bank-account.update');
     
     // Course Management (view all courses)
     Route::get('/courses', [App\Http\Controllers\Admin\CourseController::class, 'index'])->name('courses.index');

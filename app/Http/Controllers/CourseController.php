@@ -6,6 +6,8 @@ use App\Models\Course;
 use App\Models\CourseEnrollment;
 use App\Models\CourseRating;
 use App\Models\CourseView;
+use App\Models\Payment;
+use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,6 +29,7 @@ class CourseController extends Controller
         $enrollment = null;
         $canRate = false;
         $existingRating = null;
+        $hasPendingPayment = false;
         
         if (Auth::check()) {
             $enrollment = CourseEnrollment::where('course_id', $course->id)
@@ -39,6 +42,20 @@ class CourseController extends Controller
                 $existingRating = CourseRating::where('course_id', $course->id)
                     ->where('user_id', Auth::id())
                     ->first();
+            }
+
+            // Check for pending payment (not enrolled but has pending payment)
+            if (!$isEnrolled) {
+                $pendingInvoice = Invoice::where('user_id', Auth::id())
+                    ->where('course_id', $course->id)
+                    ->where('status', 'pending')
+                    ->first();
+
+                if ($pendingInvoice) {
+                    $hasPendingPayment = Payment::where('invoice_id', $pendingInvoice->id)
+                        ->where('status', 'pending')
+                        ->exists();
+                }
             }
         }
 
@@ -59,6 +76,7 @@ class CourseController extends Controller
             ->take(6)
             ->get();
 
-        return view('courses.show', compact('course', 'similarCourses', 'isEnrolled', 'enrollment', 'canRate', 'existingRating'));
+        return view('courses.show', compact('course', 'similarCourses', 'isEnrolled', 'enrollment', 'canRate', 'existingRating', 'hasPendingPayment'));
     }
 }
+

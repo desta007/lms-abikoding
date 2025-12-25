@@ -16,12 +16,17 @@ class Payment extends Model
         'status',
         'transaction_id',
         'gateway_response',
+        'payment_proof',
+        'admin_notes',
+        'approved_by',
+        'approved_at',
         'paid_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'paid_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -32,6 +37,11 @@ class Payment extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function scopePending($query)
@@ -49,3 +59,4 @@ class Payment extends Model
         return $query->where('status', $status);
     }
 }
+

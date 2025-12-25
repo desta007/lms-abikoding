@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Models\CourseEnrollment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -53,7 +56,7 @@ class PaymentController extends Controller
 
     public function show($id)
     {
-        $payment = Payment::with(['user', 'invoice.course'])->findOrFail($id);
+        $payment = Payment::with(['user', 'invoice.course', 'approver'])->findOrFail($id);
         return view('admin.payments.show', compact('payment'));
     }
 
@@ -71,9 +74,102 @@ class PaymentController extends Controller
 
         if ($request->status === 'completed' && $payment->invoice) {
             $payment->invoice->markAsPaid();
+            $this->createEnrollment($payment);
         }
 
         return redirect()->back()->with('success', 'Status pembayaran berhasil diperbarui');
+    }
+
+    public function approve($id)
+    {
+        $payment = Payment::with('invoice.course')->findOrFail($id);
+
+        if ($payment->status !== 'pending') {
+            return redirect()->back()->with('error', 'Hanya pembayaran dengan status pending yang dapat di-approve');
+        }
+
+        $payment->update([
+            'status' => 'completed',
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+            'paid_at' => now(),
+        ]);
+
+        // Mark invoice as paid
+        if ($payment->invoice) {
+            $payment->invoice->markAsPaid();
+        }
+
+        // Create enrollment
+        $this->createEnrollment($payment);
+
+        Log::info('Payment approved', [
+            'payment_id' => $payment->id,
+            'approved_by' => Auth::id(),
+            'invoice_id' => $payment->invoice_id,
+        ]);
+
+        return redirect()->back()->with('success', 'Pembayaran berhasil di-approve. Siswa sekarang dapat mengakses kursus.');
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $payment = Payment::findOrFail($id);
+
+        if ($payment->status !== 'pending') {
+            return redirect()->back()->with('error', 'Hanya pembayaran dengan status pending yang dapat di-reject');
+        }
+
+        $request->validate([
+            'admin_notes' => 'required|string|max:500',
+        ], [
+            'admin_notes.required' => 'Catatan penolakan wajib diisi',
+            'admin_notes.max' => 'Catatan maksimal 500 karakter',
+        ]);
+
+        $payment->update([
+            'status' => 'failed',
+            'admin_notes' => $request->admin_notes,
+            'approved_by' => Auth::id(),
+            'approved_at' => now(),
+        ]);
+
+        Log::info('Payment rejected', [
+            'payment_id' => $payment->id,
+            'rejected_by' => Auth::id(),
+            'reason' => $request->admin_notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Pembayaran berhasil di-reject.');
+    }
+
+    protected function createEnrollment(Payment $payment)
+    {
+        if (!$payment->invoice || !$payment->invoice->course_id) {
+            return;
+        }
+
+        try {
+            $enrollment = CourseEnrollment::updateOrCreate([
+                'course_id' => $payment->invoice->course_id,
+                'user_id' => $payment->user_id,
+            ], [
+                'progress_percentage' => 0,
+                'enrolled_at' => now(),
+            ]);
+
+            Log::info('Enrollment created from admin approval', [
+                'enrollment_id' => $enrollment->id,
+                'course_id' => $payment->invoice->course_id,
+                'user_id' => $payment->user_id,
+                'payment_id' => $payment->id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to create enrollment from admin approval', [
+                'error' => $e->getMessage(),
+                'payment_id' => $payment->id,
+            ]);
+        }
     }
 
     public function invoices(Request $request)

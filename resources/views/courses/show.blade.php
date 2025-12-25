@@ -54,18 +54,31 @@
                         </div>
                         
                         @if(!$isEnrolled)
-                            <form action="{{ route('courses.enroll', $course->id) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 mb-4">
-                                    <span class="button-text">
-                                        @if($course->isFree())
-                                            Daftar Gratis Sekarang
-                                        @else
-                                            Beli Sekarang
-                                        @endif
+                            @if($hasPendingPayment)
+                                {{-- Payment is pending verification --}}
+                                <div class="w-full px-6 py-4 bg-gradient-to-r from-yellow-500 to-amber-500 text-white rounded-lg font-bold text-lg shadow-lg mb-4 text-center cursor-not-allowed">
+                                    <span class="flex items-center justify-center gap-2">
+                                        <svg class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        Sedang Verifikasi
                                     </span>
-                                </button>
-                            </form>
+                                </div>
+                                <p class="text-sm text-gray-500 text-center mb-4">Pembayaran Anda sedang diverifikasi oleh admin</p>
+                            @else
+                                <form action="{{ route('courses.enroll', $course->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 mb-4">
+                                        <span class="button-text">
+                                            @if($course->isFree())
+                                                Daftar Gratis Sekarang
+                                            @else
+                                                Beli Sekarang
+                                            @endif
+                                        </span>
+                                    </button>
+                                </form>
+                            @endif
                         @else
                             <a href="{{ route('courses.content', $course->id) }}" class="block w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:scale-105 mb-4 text-center">
                                 Lanjutkan Belajar
