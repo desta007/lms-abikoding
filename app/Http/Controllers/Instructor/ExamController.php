@@ -366,4 +366,51 @@ class ExamController extends Controller
         return redirect()->back()
             ->with('success', 'Permintaan ulang quiz telah ditolak. Data akan hilang dari list dan siswa dapat mengajukan ulang jika diperlukan.');
     }
+
+    public function destroy($id)
+    {
+        $userId = Auth::id();
+        $user = Auth::user();
+        
+        $query = $user->isAdmin()
+            ? Exam::query()
+            : Exam::whereHas('course', function($q) use ($userId) {
+                $q->where('instructor_id', $userId);
+            });
+        
+        $exam = $query->findOrFail($id);
+
+        // Update chapter has_quiz flag if this was the only quiz for the chapter
+        if ($exam->chapter_id) {
+            $otherExamsInChapter = Exam::where('chapter_id', $exam->chapter_id)
+                ->where('id', '!=', $exam->id)
+                ->count();
+            
+            if ($otherExamsInChapter === 0) {
+                \App\Models\Chapter::where('id', $exam->chapter_id)->update(['has_quiz' => false]);
+            }
+        }
+
+        // Update material has_quiz flag if this was the only quiz for the material
+        if ($exam->chapter_material_id) {
+            $otherExamsInMaterial = Exam::where('chapter_material_id', $exam->chapter_material_id)
+                ->where('id', '!=', $exam->id)
+                ->count();
+            
+            if ($otherExamsInMaterial === 0) {
+                \App\Models\ChapterMaterial::where('id', $exam->chapter_material_id)->update(['has_quiz' => false]);
+            }
+        }
+
+        // Delete all related data (questions, answers, attempts will be cascade deleted if set up)
+        $exam->questions()->each(function($question) {
+            $question->answers()->delete();
+        });
+        $exam->questions()->delete();
+        $exam->attempts()->delete();
+        $exam->delete();
+
+        return redirect()->route('instructor.exams.index')
+            ->with('success', 'Quiz berhasil dihapus.');
+    }
 }
