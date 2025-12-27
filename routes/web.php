@@ -119,6 +119,8 @@ Route::middleware(['auth', 'role:instructor,admin'])->prefix('instructor')->name
     Route::post('/exams/{id}/questions', [App\Http\Controllers\Instructor\ExamController::class, 'addQuestion'])->name('exams.questions.add');
     Route::delete('/exams/{examId}/questions/{questionId}', [App\Http\Controllers\Instructor\ExamController::class, 'deleteQuestion'])->name('exams.questions.delete');
     Route::get('/exams/{id}/attempts', [App\Http\Controllers\Instructor\ExamController::class, 'attempts'])->name('exams.attempts');
+    Route::get('/exams/attempts/{attemptId}/grade', [App\Http\Controllers\Instructor\ExamController::class, 'gradeAttempt'])->name('exams.grade-attempt');
+    Route::post('/exams/attempts/{attemptId}/grade', [App\Http\Controllers\Instructor\ExamController::class, 'saveGrade'])->name('exams.save-grade');
     
     // Student Progress Management
     Route::get('/progress', [App\Http\Controllers\Instructor\StudentProgressController::class, 'index'])->name('progress.index');

@@ -157,5 +157,31 @@ class NotificationHelper
             ],
         ]);
     }
+
+    /**
+     * Create notification for quiz graded
+     */
+    public static function createQuizGraded(ExamAttempt $attempt): void
+    {
+        $exam = $attempt->exam;
+        $course = $exam->course;
+        $student = $attempt->user;
+        $status = $attempt->status === 'passed' ? 'Lulus' : 'Tidak Lulus';
+
+        Notification::create([
+            'user_id' => $student->id,
+            'type' => 'quiz_graded',
+            'title' => 'Quiz Telah Dinilai',
+            'message' => "Quiz '{$exam->title}' di kursus '{$course->title}' telah dinilai. Status: {$status} dengan nilai {$attempt->percentage}%",
+            'link' => route('student.exams.result', $attempt->id),
+            'data' => [
+                'attempt_id' => $attempt->id,
+                'exam_id' => $exam->id,
+                'course_id' => $course->id,
+                'status' => $attempt->status,
+                'percentage' => $attempt->percentage,
+            ],
+        ]);
+    }
 }
 

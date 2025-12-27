@@ -51,6 +51,9 @@
                             <x-nav-link :href="route('instructor.progress.index')" :active="request()->routeIs('instructor.progress.*')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 {{ __('Progress Siswa') }}
                             </x-nav-link>
+                            <x-nav-link :href="route('instructor.exams.index')" :active="request()->routeIs('instructor.exams.*') && !request()->routeIs('instructor.exams.retake-requests')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
+                                {{ __('Quiz') }}
+                            </x-nav-link>
                             <x-nav-link :href="route('instructor.exams.retake-requests')" :active="request()->routeIs('instructor.exams.retake-requests')" class="px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">
                                 {{ __('Permintaan Ulang Quiz') }}
                             </x-nav-link>
@@ -401,6 +404,9 @@
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('instructor.progress.index')" :active="request()->routeIs('instructor.progress.*')">
                         {{ __('Progress Siswa') }}
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('instructor.exams.index')" :active="request()->routeIs('instructor.exams.*') && !request()->routeIs('instructor.exams.retake-requests')">
+                        {{ __('Quiz') }}
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('instructor.exams.retake-requests')" :active="request()->routeIs('instructor.exams.retake-requests')">
                         {{ __('Permintaan Ulang Quiz') }}

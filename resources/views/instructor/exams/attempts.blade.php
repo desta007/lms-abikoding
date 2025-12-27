@@ -103,6 +103,10 @@
                                             <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                                                 Sedang Mengerjakan
                                             </span>
+                                        @elseif($attempt->status === 'submitted')
+                                            <span class="px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                                                Menunggu Penilaian
+                                            </span>
                                         @elseif($attempt->status === 'retake_requested')
                                             <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                                                 Minta Ulang
@@ -120,11 +124,19 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900">
-                                            {{ $attempt->completed_at ? $attempt->completed_at->format('d M Y, H:i') : '-' }}
+                                            {{ $attempt->submitted_at ? $attempt->submitted_at->format('d M Y, H:i') : '-' }}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        @if($attempt->status === 'retake_requested')
+                                        @if($attempt->status === 'submitted')
+                                            <a href="{{ route('instructor.exams.grade-attempt', $attempt->id) }}" 
+                                               class="inline-flex items-center px-3 py-1 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                                </svg>
+                                                Nilai Essay
+                                            </a>
+                                        @elseif($attempt->status === 'retake_requested')
                                             <div class="flex gap-2">
                                                 <form action="{{ route('instructor.exams.approve-retake', $attempt->id) }}" method="POST" class="inline">
                                                     @csrf
@@ -140,6 +152,11 @@
                                                     Tolak
                                                 </button>
                                             </div>
+                                        @elseif(in_array($attempt->status, ['passed', 'failed']))
+                                            <a href="{{ route('instructor.exams.grade-attempt', $attempt->id) }}" 
+                                               class="text-indigo-600 hover:text-indigo-900 text-xs">
+                                                Lihat Detail
+                                            </a>
                                         @else
                                             <span class="text-gray-400">-</span>
                                         @endif
