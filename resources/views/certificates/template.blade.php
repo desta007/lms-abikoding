@@ -63,6 +63,7 @@
             padding-top: 50px;
             padding-left: 50px;
             padding-right: 50px;
+            padding-bottom: 30px;
         }
 
         .header-title {
@@ -75,7 +76,7 @@
         }
 
         .text-regular {
-            font-size: 18px;
+            font-size: 22px;
             color: #555;
             margin-bottom: 5px;
         }
@@ -101,13 +102,14 @@
         }
 
         .date-text {
-            font-size: 16px;
+            font-size: 20px;
             color: #666;
             margin-top: 20px;
         }
 
         .cert-no {
-            font-size: 16px;
+            font-size: 20px;
+            font-weight: bold;
             color: #aaa;
             margin-top: 10px;
             font-family: monospace;
@@ -116,7 +118,7 @@
         /* FOOTER (Instruktur & Logo Kanan) */
         .footer-fixed {
             position: absolute;
-            bottom: 40px;
+            bottom: 60px;
             left: 40px;
             right: 40px;
         }

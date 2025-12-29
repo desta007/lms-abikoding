@@ -132,6 +132,7 @@ Route::middleware(['auth', 'role:instructor,admin'])->prefix('instructor')->name
     // Course Students Routes
     Route::get('/courses/{courseId}/students', [App\Http\Controllers\Instructor\CourseStudentController::class, 'index'])->name('courses.students');
     Route::get('/courses/{courseId}/students/{studentId}', [App\Http\Controllers\Instructor\CourseStudentController::class, 'show'])->name('courses.students.show');
+    Route::get('/courses/{courseId}/students/{studentId}/certificate', [App\Http\Controllers\Instructor\CourseStudentController::class, 'downloadCertificate'])->name('courses.students.certificate');
     
     // Student Rating Routes
     Route::post('/courses/{courseId}/students/{studentId}/ratings', [App\Http\Controllers\Instructor\StudentRatingController::class, 'store'])->name('student-ratings.store');
