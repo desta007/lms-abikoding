@@ -38,9 +38,11 @@ class ProfileController extends Controller
         $user = Auth::user();
         $profile = $user->profile ?? \App\Models\UserProfile::create(['user_id' => $user->id]);
 
+        // Support both simple form (name/email) and extended form (first_name/last_name)
         $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
+            'first_name' => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'whatsapp_number' => 'nullable|string',
             'bio' => 'nullable|string|max:1000',
@@ -52,11 +54,27 @@ class ProfileController extends Controller
             'password' => 'nullable|min:8|confirmed',
         ]);
 
+        // Determine the name to use
+        if ($request->filled('first_name') && $request->filled('last_name')) {
+            $fullName = $validated['first_name'] . ' ' . $validated['last_name'];
+            $firstName = $validated['first_name'];
+            $lastName = $validated['last_name'];
+        } elseif ($request->filled('name')) {
+            $fullName = $validated['name'];
+            $nameParts = explode(' ', $validated['name'], 2);
+            $firstName = $nameParts[0];
+            $lastName = $nameParts[1] ?? '';
+        } else {
+            $fullName = $user->name;
+            $firstName = $user->first_name;
+            $lastName = $user->last_name;
+        }
+
         // Update user info
         $user->update([
-            'name' => $validated['first_name'] . ' ' . $validated['last_name'],
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
+            'name' => $fullName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'email' => $validated['email'],
             'whatsapp_number' => $validated['whatsapp_number'] ?? $user->whatsapp_number,
         ]);
@@ -94,7 +112,7 @@ class ProfileController extends Controller
             'website' => $validated['website'] ?? null,
         ]);
 
-        return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui');
+        return redirect()->route('profile.edit')->with('status', 'profile-updated');
     }
 
     public function enrollments()
