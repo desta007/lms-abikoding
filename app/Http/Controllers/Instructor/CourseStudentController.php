@@ -7,6 +7,7 @@ use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\CourseEnrollment;
 use App\Models\StudentRating;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -44,12 +45,7 @@ class CourseStudentController extends Controller
         
         $studentRatings = $ratingQuery->get()->keyBy('student_id');
 
-        // Load certificates for each student
-        $studentCertificates = Certificate::where('course_id', $courseId)
-            ->get()
-            ->keyBy('user_id');
-
-        return view('instructor.courses.students', compact('course', 'enrollments', 'studentRatings', 'studentCertificates'));
+        return view('instructor.courses.students', compact('course', 'enrollments', 'studentRatings'));
     }
 
     /**
@@ -86,7 +82,7 @@ class CourseStudentController extends Controller
     }
 
     /**
-     * Download student's certificate
+     * Download student's certificate (Instructor can download regardless of student progress)
      */
     public function downloadCertificate($courseId, $studentId)
     {
@@ -94,7 +90,7 @@ class CourseStudentController extends Controller
         $user = Auth::user();
         
         // Verify course belongs to this instructor or user is admin
-        $courseQuery = Course::where('id', $courseId);
+        $courseQuery = Course::where('id', $courseId)->with('instructor');
         
         if (!$user->isAdmin()) {
             $courseQuery->where('instructor_id', $userId);
@@ -102,14 +98,39 @@ class CourseStudentController extends Controller
         
         $course = $courseQuery->firstOrFail();
 
-        // Get the certificate for this student and course
+        // Get the student
+        $student = User::findOrFail($studentId);
+
+        // Get the enrollment
+        $enrollment = CourseEnrollment::where('course_id', $courseId)
+            ->where('user_id', $studentId)
+            ->first();
+
+        if (!$enrollment) {
+            return redirect()->back()->with('error', 'Siswa tidak terdaftar di kursus ini.');
+        }
+
+        // Get or create the certificate
         $certificate = Certificate::where('course_id', $courseId)
             ->where('user_id', $studentId)
             ->with(['course', 'user', 'course.instructor'])
             ->first();
 
+        // If certificate doesn't exist, create one on-the-fly (for instructor use only)
         if (!$certificate) {
-            return redirect()->back()->with('error', 'Siswa belum memiliki sertifikat untuk kursus ini.');
+            try {
+                $certificate = Certificate::create([
+                    'course_enrollment_id' => $enrollment->id,
+                    'user_id' => $studentId,
+                    'course_id' => $courseId,
+                    'issued_at' => now(),
+                    'is_valid' => true,
+                ]);
+                $certificate->load(['course', 'user', 'course.instructor']);
+            } catch (\Exception $e) {
+                \Log::error('Failed to create certificate: ' . $e->getMessage());
+                return redirect()->back()->with('error', 'Gagal membuat sertifikat: ' . $e->getMessage());
+            }
         }
 
         // If PDF exists in storage, return it
