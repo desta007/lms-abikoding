@@ -1,206 +1,234 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>Sertifikat Penyelesaian</title>
+    
+    @php
+        // 1. PROSES LOGO (Mengatasi Image Not Found)
+        $logoBase64 = '';
+        $logoPath = public_path('storage/logodctech.jpg'); // Logo DC Tech dari folder storage
+        
+        if (file_exists($logoPath)) {
+            try {
+                $type = pathinfo($logoPath, PATHINFO_EXTENSION);
+                $data = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+            } catch (\Exception $e) {
+                // Jika gagal baca gambar, biarkan kosong agar PDF tetap terbit
+            }
+        }
+
+        // 2. PROSES QR CODE (Mengatasi Library Error)
+        $qrCodeImage = '';
+        $qrContent = $instructor ? $instructor->full_name : 'Verifikasi Sertifikat';
+        
+        try {
+            // Cek apakah library QrCode terinstall
+            if (class_exists('SimpleSoftwareIO\QrCode\Facades\QrCode')) {
+                // Kita gunakan format SVG (Lebih aman drpd PNG karena tidak butuh Imagick)
+                $qrRaw = SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(100)->margin(1)->generate($qrContent);
+                // Encode ke base64 agar bisa masuk tag <img>
+                $qrCodeImage = 'data:image/svg+xml;base64,' . base64_encode($qrRaw);
+            }
+        } catch (\Exception $e) {
+            // Jika library error, variable $qrCodeImage tetap kosong
+        }
+    @endphp
+
     <style>
-        @page { 
-            margin: 0;
-            size: A4 landscape;
+        /* SETUP HALAMAN */
+        @page { margin: 0px; size: A4 landscape; }
+        body { 
+            margin: 0px; 
+            padding: 0px; 
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            background: #fff;
         }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'DejaVu Sans', sans-serif;
-            margin: 0;
-            padding: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-        .certificate-container {
-            background: white;
-            border: 15px solid #d4af37;
-            padding: 60px;
-            text-align: center;
-            min-height: 100vh;
-            position: relative;
-            box-shadow: 0 0 30px rgba(0,0,0,0.3);
-        }
-        .certificate-header {
-            margin-bottom: 40px;
-        }
-        .certificate-title-id {
-            font-size: 36px;
-            font-weight: bold;
-            color: #1a202c;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-        .certificate-title-en {
-            font-size: 28px;
-            font-weight: 600;
-            color: #4a5568;
-            margin-bottom: 30px;
-            text-transform: uppercase;
-        }
-        .certificate-body {
-            margin: 40px 0;
-        }
-        .certificate-text {
-            font-size: 16px;
-            color: #4a5568;
-            margin: 15px 0;
-            line-height: 1.8;
-        }
-        .student-name {
-            font-size: 42px;
-            font-weight: bold;
-            color: #1a202c;
-            margin: 30px 0;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        .course-name {
-            font-size: 32px;
-            font-weight: 600;
-            color: #2d3748;
-            margin: 30px 0;
-            font-style: italic;
-        }
-        .certificate-date {
-            font-size: 18px;
-            color: #4a5568;
-            margin: 20px 0;
-        }
-        .instructor-name {
-            font-size: 18px;
-            color: #4a5568;
-            margin-top: 10px;
-        }
-        .qr-code-container {
-            margin: 40px 0;
-            display: inline-block;
-        }
-        .qr-code-container img {
-            width: 150px;
-            height: 150px;
-            border: 2px solid #e2e8f0;
-            padding: 10px;
-            background: white;
-        }
-        .certificate-number {
-            font-size: 14px;
-            color: #718096;
-            margin-top: 30px;
-            font-weight: 600;
-        }
-        .certificate-footer {
-            margin-top: 50px;
-            padding-top: 30px;
-            border-top: 2px solid #e2e8f0;
-        }
-        .signature-area {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 40px;
-        }
-        .signature {
-            text-align: center;
-            width: 200px;
-        }
-        .signature-line {
-            border-top: 2px solid #1a202c;
-            margin: 60px 20px 10px;
-        }
-        .signature-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2d3748;
-        }
-        .signature-title {
-            font-size: 14px;
-            color: #718096;
-            margin-top: 5px;
-        }
-        .decorative-border {
+
+        /* FRAME BORDER */
+        .border-frame {
             position: absolute;
-            border: 3px solid #d4af37;
             top: 20px;
             left: 20px;
             right: 20px;
             bottom: 20px;
-            pointer-events: none;
+            border: 10px solid #1e40af; /* Biru Tua */
+            box-sizing: border-box;
+            text-align: center;
         }
+
+        /* KONTEN UTAMA */
+        .content-wrapper {
+            padding-top: 50px;
+            padding-left: 50px;
+            padding-right: 50px;
+        }
+
+        .header-title {
+            font-size: 36px;
+            font-weight: bold;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .text-regular {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .student-name {
+            font-size: 42px;
+            font-weight: bold;
+            color: #000;
+            text-transform: uppercase;
+            margin: 15px auto;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 5px;
+            display: inline-block;
+            min-width: 60%;
+        }
+
+        .course-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2563eb; /* Biru Cerah */
+            font-style: italic;
+            margin: 15px 0;
+        }
+
+        .date-text {
+            font-size: 16px;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .cert-no {
+            font-size: 16px;
+            color: #aaa;
+            margin-top: 10px;
+            font-family: monospace;
+        }
+
+        /* FOOTER (Instruktur & Logo Kanan) */
+        .footer-fixed {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            right: 40px;
+        }
+
+        .sign-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .col-sign {
+            width: 50%;
+            vertical-align: bottom;
+            text-align: center;
+        }
+
+        /* Styling Gambar (Logo & QR) */
+        .img-signature-area {
+            height: 90px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .qr-img {
+            width: 80px;
+            height: 80px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .logo-img {
+            width: 150px; /* Ukuran Logo Diperbesar */
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .sign-line {
+            border-top: 2px solid #333;
+            width: 60%;
+            margin: 0 auto 8px auto;
+        }
+
+        .sign-name { font-weight: bold; font-size: 16px; color: #333; }
+        .sign-role { font-size: 14px; color: #777; }
+
     </style>
 </head>
 <body>
-    <div class="certificate-container">
-        <div class="decorative-border"></div>
-        
-        <div class="certificate-header">
-            <div class="certificate-title-id">SERTIFIKAT PENYELESAIAN</div>
-            <div class="certificate-title-en">CERTIFICATE OF COMPLETION</div>
-        </div>
 
-        <div class="certificate-body">
-            <div class="certificate-text">
-                Dengan ini menyatakan bahwa<br>
-                <span style="font-style: italic;">This certifies that</span>
-            </div>
+    <div class="border-frame">
+        
+        <div class="content-wrapper">
+            <div class="header-title">SERTIFIKAT PENYELESAIAN</div>
+
+            <div class="text-regular">Dengan ini menyatakan bahwa:</div>
 
             <div class="student-name">
                 {{ $user->full_name }}
             </div>
 
-            <div class="certificate-text">
-                telah menyelesaikan kursus<br>
-                <span style="font-style: italic;">has successfully completed the course</span>
-            </div>
+            <div class="text-regular">Telah berhasil menyelesaikan kursus:</div>
 
-            <div class="course-name">
+            <div class="course-title">
                 "{{ $course->title }}"
             </div>
 
-            <div class="certificate-date">
-                Pada tanggal {{ $certificate->issued_at->format('d F Y') }}<br>
-                <span style="font-style: italic;">On {{ $certificate->issued_at->format('F d, Y') }}</span>
+            <div class="date-text">
+                Diterbitkan pada tanggal {{ $certificate->issued_at->format('d F Y') }}
             </div>
 
-            @if($instructor)
-            <div class="instructor-name">
-                Instruktur: {{ $instructor->full_name }}<br>
-                <span style="font-style: italic;">Instructor: {{ $instructor->full_name }}</span>
-            </div>
-            @endif
-        </div>
-
-        <div class="qr-code-container">
-            <img src="data:image/png;base64,{{ $qrCode }}" alt="QR Code">
-            <div style="font-size: 12px; color: #718096; margin-top: 10px;">
-                Scan untuk verifikasi / Scan to verify
+            <div class="cert-no">
+                No. Sertifikat: {{ $certificate->certificate_number }}
             </div>
         </div>
 
-        <div class="certificate-number">
-            Certificate No: {{ $certificate->certificate_number }}
+        <div class="footer-fixed">
+            <table class="sign-table">
+                <tr>
+                    <td class="col-sign">
+                        <div class="img-signature-area">
+                            @if(!empty($qrCodeImage))
+                                <img src="{{ $qrCodeImage }}" class="qr-img" alt="QR Code">
+                            @else
+                                <div style="width:80px; height:80px; margin:0 auto;"></div> 
+                            @endif
+                        </div>
+                        
+                        <div class="sign-line"></div>
+                        <div class="sign-name">{{ $instructor ? $instructor->full_name : 'Instruktur' }}</div>
+                        <div class="sign-role">Instruktur</div>
+                    </td>
+
+                    <td class="col-sign">
+                        <div class="img-signature-area">
+                            @if(!empty($logoBase64))
+                                <img src="{{ $logoBase64 }}" class="logo-img" alt="Logo">
+                            @else
+                                <div style="font-size:10px; color:red;">Logo Not Found</div>
+                            @endif
+                        </div>
+
+                        <div class="sign-line"></div>
+                        <div class="sign-name">abikoding by DC Tech</div>
+                        <div class="sign-role">Platform Pendidikan</div>
+                    </td>
+                </tr>
+            </table>
         </div>
 
-        <div class="certificate-footer">
-            <div class="signature-area">
-                <div class="signature">
-                    <div class="signature-line"></div>
-                    <div class="signature-name">{{ $instructor ? $instructor->full_name : 'Instructor' }}</div>
-                    <div class="signature-title">Instruktur / Instructor</div>
-                </div>
-                <div class="signature">
-                    <div class="signature-line"></div>
-                    <div class="signature-name">LMS DC TECH</div>
-                    <div class="signature-title">Platform Pendidikan</div>
-                </div>
-            </div>
-        </div>
     </div>
+
 </body>
 </html>
-
